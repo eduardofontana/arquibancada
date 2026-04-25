@@ -1,3 +1,6 @@
+"use client";
+
+import { memo } from "react";
 import { Match } from "@/types";
 import Link from "next/link";
 import { CompetitionChip } from "./CompetitionChip";
@@ -7,7 +10,7 @@ interface MatchCardProps {
   match: Match;
 }
 
-export function MatchCard({ match }: MatchCardProps) {
+export const MatchCard = memo(function MatchCard({ match }: MatchCardProps) {
   const isScheduled = match.status === "scheduled";
   const isLive = match.status === "live";
   const isFinished = match.status === "finished";
@@ -52,6 +55,4 @@ export function MatchCard({ match }: MatchCardProps) {
       </div>
     </Link>
   );
-}
-
-
+});

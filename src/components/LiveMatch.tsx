@@ -1,15 +1,19 @@
+"use client";
+
+import { Suspense, memo } from "react";
 import { Match } from "@/types";
 import Link from "next/link";
 import { CompetitionChip } from "./CompetitionChip";
 import { ScoreDisplay } from "./ScoreDisplay";
 import { TeamBadge } from "./TeamBadge";
+import { LiveMatchSkeleton } from "./Skeleton";
 
 interface LiveMatchProps {
   match: Match;
   featured?: boolean;
 }
 
-export function LiveMatch({ match, featured = false }: LiveMatchProps) {
+export const LiveMatch = memo(function LiveMatch({ match, featured = false }: LiveMatchProps) {
   const isLive = match.status === "live";
   const isFinished = match.status === "finished";
   const isHalftime = match.status === "halftime";
@@ -105,8 +109,12 @@ export function LiveMatch({ match, featured = false }: LiveMatchProps) {
       </div>
     </Link>
   );
+});
+
+export function LiveMatchWithSuspense(props: LiveMatchProps) {
+  return (
+    <Suspense fallback={<LiveMatchSkeleton />}>
+      <LiveMatch {...props} />
+    </Suspense>
+  );
 }
-
-
-
-

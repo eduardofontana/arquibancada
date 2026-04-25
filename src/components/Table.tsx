@@ -1,3 +1,6 @@
+"use client";
+
+import { memo } from "react";
 import { Standing } from "@/types";
 import { TeamBadge } from "./TeamBadge";
 
@@ -6,7 +9,7 @@ interface TableProps {
   competition?: string;
 }
 
-export function Table({ standings, competition = "Brasileirão A" }: TableProps) {
+export const Table = memo(function Table({ standings, competition = "Brasileirão A" }: TableProps) {
   return (
     <div className="surface-card overflow-hidden">
       <div className="bg-[rgba(193,18,31,0.06)] p-4 border-b border-[rgba(21,128,61,0.2)]">
@@ -96,9 +99,4 @@ export function Table({ standings, competition = "Brasileirão A" }: TableProps)
       </div>
     </div>
   );
-}
-
-
-
-
-
+});

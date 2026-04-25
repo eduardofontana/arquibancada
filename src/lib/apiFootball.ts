@@ -1,11 +1,10 @@
 import { Match, MatchEvent, Standing, Team } from "@/types";
+import { validateMatch, validateStanding } from "@/types/schemas";
 
 const API_FOOTBALL_BASE_URL = "https://v3.football.api-sports.io";
-const DEFAULT_LEAGUE_IDS = ["71"];
-const DEFAULT_FIXTURES_REVALIDATE_SECONDS = 60 * 15;
-const DEFAULT_STANDINGS_REVALIDATE_SECONDS = 60 * 60 * 12;
-const DEFAULT_PAST_DAYS = 2;
-const DEFAULT_FUTURE_DAYS = 7;
+
+const DEFAULT_FIXTURES_REVALIDATE_SECONDS = 60 * 60 * 12;
+const DEFAULT_STANDINGS_REVALIDATE_SECONDS = 60 * 60 * 24;
 
 interface ApiFootballFixtureResponse {
   fixture: {
@@ -76,94 +75,80 @@ interface ApiFootballStanding {
   };
 }
 
-interface ApiFootballPayload<T> {
-  response?: T[];
-  errors?: unknown;
-}
-
 export interface LiveFootballData {
   matches: Match[];
   standings: Standing[];
   teams: Team[];
 }
 
-function getApiKey(): string | null {
-  return process.env.API_FOOTBALL_KEY?.trim() || null;
+const MAX_RETRIES = 2;
+const RETRY_DELAY_BASE = 1000;
+
+async function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function getLeagueIds(): string[] {
-  return (process.env.API_FOOTBALL_LEAGUE_IDS || DEFAULT_LEAGUE_IDS.join(","))
-    .split(",")
-    .map((league) => league.trim())
-    .filter(Boolean);
+async function fetchWithRetry<T>(
+  url: string,
+  apiKey: string,
+  revalidate: number,
+  retries = MAX_RETRIES
+): Promise<T[]> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch(url, {
+        headers: {
+          "x-apisports-key": apiKey,
+        },
+        next: {
+          revalidate,
+          tags: ["api-football"],
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 429 && attempt < retries) {
+          const delay = RETRY_DELAY_BASE * Math.pow(2, attempt);
+          await sleep(delay);
+          continue;
+        }
+        return [];
+      }
+
+      const payload = (await response.json()) as { response?: T[]; errors?: unknown };
+      return payload.response ?? [];
+    } catch {
+      if (attempt < retries) {
+        const delay = RETRY_DELAY_BASE * Math.pow(2, attempt);
+        await sleep(delay);
+        continue;
+      }
+      return [];
+    }
+  }
+  return [];
+}
+
+function getApiKey(): string | null {
+  return process.env.API_FOOTBALL_KEY?.trim() || null;
 }
 
 function getSeason(): string {
   return process.env.API_FOOTBALL_SEASON || String(new Date().getFullYear());
 }
 
-function getNumberEnv(name: string, fallback: number): number {
-  const value = Number(process.env[name]);
-  return Number.isFinite(value) && value > 0 ? value : fallback;
-}
-
-function formatDate(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
-
-function getDateWindow(): { from: string; to: string } {
-  const pastDays = getNumberEnv("API_FOOTBALL_WINDOW_PAST_DAYS", DEFAULT_PAST_DAYS);
-  const futureDays = getNumberEnv("API_FOOTBALL_WINDOW_FUTURE_DAYS", DEFAULT_FUTURE_DAYS);
-  const from = new Date();
-  const to = new Date();
-
-  from.setDate(from.getDate() - pastDays);
-  to.setDate(to.getDate() + futureDays);
-
-  return {
-    from: formatDate(from),
-    to: formatDate(to),
-  };
-}
-
 function buildUrl(path: string, params: Record<string, string>): string {
   const url = new URL(path, API_FOOTBALL_BASE_URL);
-
   for (const [key, value] of Object.entries(params)) {
     url.searchParams.set(key, value);
   }
-
   return url.toString();
 }
 
 async function fetchApiFootball<T>(url: string, revalidate: number): Promise<T[]> {
   const apiKey = getApiKey();
-
-  if (!apiKey) {
-    return [];
-  }
-
-  try {
-    const response = await fetch(url, {
-      headers: {
-        "x-apisports-key": apiKey,
-      },
-      next: {
-        revalidate,
-        tags: ["api-football"],
-      },
-    });
-
-    if (!response.ok) {
-      return [];
-    }
-
-    const payload = (await response.json()) as ApiFootballPayload<T>;
-
-    return Array.isArray(payload.response) ? payload.response : [];
-  } catch {
-    return [];
-  }
+  if (!apiKey) return [];
+  return fetchWithRetry<T>(url, apiKey, revalidate);
 }
 
 function toTeam(team: ApiFootballTeam): Team {
@@ -213,8 +198,8 @@ function toMatchEvent(event: ApiFootballEvent, fixtureId: number, index: number)
   };
 }
 
-function toMatch(fixture: ApiFootballFixtureResponse): Match {
-  return {
+function toMatch(fixture: ApiFootballFixtureResponse): Match | null {
+  const match: Match = {
     id: `api-${fixture.fixture.id}`,
     homeTeam: toTeam(fixture.teams.home),
     awayTeam: toTeam(fixture.teams.away),
@@ -227,10 +212,12 @@ function toMatch(fixture: ApiFootballFixtureResponse): Match {
     date: fixture.fixture.date.slice(0, 10),
     events: (fixture.events || []).map((event, index) => toMatchEvent(event, fixture.fixture.id, index)),
   };
+
+  return validateMatch(match);
 }
 
-function toStanding(standing: ApiFootballStanding): Standing {
-  return {
+function toStanding(standing: ApiFootballStanding): Standing | null {
+  const standingData: Standing = {
     position: standing.rank,
     team: toTeam(standing.team),
     played: standing.all.played,
@@ -241,6 +228,8 @@ function toStanding(standing: ApiFootballStanding): Standing {
     goalsAgainst: standing.all.goals.against,
     points: standing.points,
   };
+
+  return validateStanding(standingData);
 }
 
 function uniqueTeams(matches: Match[], standings: Standing[]): Team[] {
@@ -263,51 +252,51 @@ export async function getLiveFootballData(): Promise<LiveFootballData | null> {
     return null;
   }
 
-  const leagueIds = getLeagueIds();
+  const leagueId = "71";
   const season = getSeason();
-  const { from, to } = getDateWindow();
-  const fixturesRevalidate = getNumberEnv("API_FOOTBALL_FIXTURES_REVALIDATE_SECONDS", DEFAULT_FIXTURES_REVALIDATE_SECONDS);
-  const standingsRevalidate = getNumberEnv("API_FOOTBALL_STANDINGS_REVALIDATE_SECONDS", DEFAULT_STANDINGS_REVALIDATE_SECONDS);
+  const fixturesRevalidate = DEFAULT_FIXTURES_REVALIDATE_SECONDS;
+  const standingsRevalidate = DEFAULT_STANDINGS_REVALIDATE_SECONDS;
 
-  const fixtureRequests = leagueIds.map((league) =>
+  const today = new Date();
+  const from = new Date(today);
+  const to = new Date(today);
+
+  from.setDate(from.getDate() - 2);
+  to.setDate(to.getDate() + 7);
+
+  const formatDate = (d: Date) => d.toISOString().slice(0, 10);
+
+  const [fixturesData, standingsData] = await Promise.all([
     fetchApiFootball<ApiFootballFixtureResponse>(
       buildUrl("/fixtures", {
-        league,
+        league: leagueId,
         season,
-        from,
-        to,
+        from: formatDate(from),
+        to: formatDate(to),
         timezone: "America/Sao_Paulo",
       }),
-      fixturesRevalidate,
+      fixturesRevalidate
     ),
-  );
-
-  const standingsRequests = leagueIds.map((league) =>
     fetchApiFootball<ApiFootballStandingsResponse>(
       buildUrl("/standings", {
-        league,
+        league: leagueId,
         season,
       }),
-      standingsRevalidate,
+      standingsRevalidate
     ),
-  );
-
-  const [fixturesByLeague, standingsByLeague] = await Promise.all([
-    Promise.all(fixtureRequests),
-    Promise.all(standingsRequests),
   ]);
 
-  const matches = fixturesByLeague
-    .flat()
+  const matches = fixturesData
     .map(toMatch)
+    .filter((m): m is Match => m !== null)
     .sort((a, b) => {
       if (a.status === "live" && b.status !== "live") return -1;
       if (b.status === "live" && a.status !== "live") return 1;
       return new Date(a.date).getTime() - new Date(b.date).getTime();
     });
 
-  const standings = standingsByLeague.flatMap((leaguePayload) =>
-    leaguePayload.flatMap((item) => item.league.standings.at(0)?.map(toStanding) ?? []),
+  const standings = standingsData.flatMap((item) =>
+    item.league.standings.at(0)?.map(toStanding).filter((s): s is Standing => s !== null) ?? []
   );
 
   if (matches.length === 0 && standings.length === 0) {
