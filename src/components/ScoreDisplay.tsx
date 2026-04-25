@@ -22,7 +22,7 @@ export function ScoreDisplay({ homeScore, awayScore, size = "md", animated = fal
       >
         {homeScore}
       </div>
-      <span className="text-[var(--muted)] text-xl sm:text-2xl md:text-4xl font-light">×</span>
+      <span className="text-[var(--muted)] text-xl sm:text-2xl md:text-4xl font-light">x</span>
       <div
         className={`${sizeClasses[size]} font-bold min-w-[2ch] text-center ${animated ? "animate-pulse" : ""}`}
         style={{

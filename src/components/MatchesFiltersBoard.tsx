@@ -34,7 +34,7 @@ export function MatchesFiltersBoard({ matches }: MatchesFiltersBoardProps) {
     return matches
       .filter((match) => {
         if (status === "live") {
-          if (match.status !== "live" && match.status !== "halftime") return false;
+          if (match.status !== "live") return false;
         } else if (status !== "all" && match.status !== status) {
           return false;
         }

@@ -20,6 +20,8 @@ export default async function JogoPage({ params }: PageProps) {
 
   const isLive = match.status === "live";
   const isFinished = match.status === "finished";
+  const isHalftime = match.status === "halftime";
+  const statusLabel = isLive ? `${match.minute}'` : isHalftime ? "Intervalo" : isFinished ? "Finalizado" : "Agendado";
 
   return (
     <div className="page-shell">
@@ -39,7 +41,7 @@ export default async function JogoPage({ params }: PageProps) {
               }`}
             >
               <span className={`w-2 h-2 rounded-full ${isLive ? "bg-[var(--on-accent)]" : "bg-transparent"}`} />
-              {isLive ? `${match.minute}'` : isFinished ? "Finalizado" : "Agendado"}
+              {statusLabel}
             </div>
           </div>
 
@@ -58,7 +60,7 @@ export default async function JogoPage({ params }: PageProps) {
           </div>
 
           <div className="mt-6 pt-6 border-t border-[rgba(193,18,31,0.18)] text-center">
-            <p className="text-[var(--muted)]">{match.stadium} • {match.date}</p>
+            <p className="text-[var(--muted)]">{match.stadium} - {match.date}</p>
           </div>
         </div>
 
@@ -71,14 +73,14 @@ export default async function JogoPage({ params }: PageProps) {
         </div>
 
         <div className="mt-8 surface-card rounded-xl p-6">
-          <h3 className="text-xl mb-4">Informações do Jogo</h3>
+          <h3 className="text-xl mb-4">Informacoes do Jogo</h3>
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
-              <span className="text-[var(--muted)] block">Competição</span>
+              <span className="text-[var(--muted)] block">Competicao</span>
               <span className="font-semibold">{match.competition}</span>
             </div>
             <div>
-              <span className="text-[var(--muted)] block">Estádio</span>
+              <span className="text-[var(--muted)] block">Estadio</span>
               <span className="font-semibold">{match.stadium}</span>
             </div>
             <div>
@@ -88,7 +90,7 @@ export default async function JogoPage({ params }: PageProps) {
             <div>
               <span className="text-[var(--muted)] block">Status</span>
               <span className={`font-semibold ${isLive ? "text-[var(--accent)]" : "text-[var(--text)]"}`}>
-                {isLive ? "Ao Vivo" : isFinished ? "Finalizado" : "Agendado"}
+                {statusLabel}
               </span>
             </div>
           </div>
@@ -97,7 +99,3 @@ export default async function JogoPage({ params }: PageProps) {
     </div>
   );
 }
-
-
-
-

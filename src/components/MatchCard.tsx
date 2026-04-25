@@ -28,7 +28,7 @@ export function MatchCard({ match }: MatchCardProps) {
             </div>
           ) : (
             <div className="text-xl font-bold">
-              {match.homeScore} × {match.awayScore}
+              {match.homeScore} x {match.awayScore}
             </div>
           )}
         </div>

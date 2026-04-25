@@ -112,7 +112,7 @@ export default async function TimePage({ params }: PageProps) {
                       style={{ height: `${Math.max(8, Math.min(56, Math.abs(goalDiff) * 18))}px` }}
                       title={`Saldo: ${goalDiff > 0 ? `+${goalDiff}` : goalDiff}`}
                     />
-                    <span className="text-[10px] text-[var(--muted)]">{match.homeScore}×{match.awayScore}</span>
+                    <span className="text-[10px] text-[var(--muted)]">{match.homeScore}x{match.awayScore}</span>
                   </div>
                 ))}
               </div>

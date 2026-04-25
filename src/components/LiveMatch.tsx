@@ -12,6 +12,7 @@ interface LiveMatchProps {
 export function LiveMatch({ match, featured = false }: LiveMatchProps) {
   const isLive = match.status === "live";
   const isFinished = match.status === "finished";
+  const isHalftime = match.status === "halftime";
 
   if (featured) {
     return (
@@ -31,7 +32,7 @@ export function LiveMatch({ match, featured = false }: LiveMatchProps) {
             }`}
           >
             <span className={`w-2 h-2 rounded-full ${isLive ? "bg-[var(--on-accent)] live-dot-radar" : "bg-transparent"}`} />
-            {isLive ? `${match.minute}'` : isFinished ? "Final" : "Agendado"}
+            {isLive ? `${match.minute}'` : isHalftime ? "Intervalo" : isFinished ? "Final" : "Agendado"}
           </div>
         </div>
 
@@ -89,10 +90,10 @@ export function LiveMatch({ match, featured = false }: LiveMatchProps) {
         <TeamBadge team={match.homeTeam} size="md" />
         <div className="flex flex-col items-center min-w-[60px]">
           <div className="text-2xl font-bold">
-            {match.homeScore} × {match.awayScore}
+            {match.homeScore} x {match.awayScore}
           </div>
           <div className={`text-xs font-bold uppercase ${isLive ? "text-[var(--accent)] animate-pulse" : "text-[var(--muted)]"}`}>
-            {isLive ? `${match.minute}'` : isFinished ? "Final" : "—"}
+            {isLive ? `${match.minute}'` : isHalftime ? "Intervalo" : isFinished ? "Final" : "--"}
           </div>
         </div>
         <TeamBadge team={match.awayTeam} size="md" />
